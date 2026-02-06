@@ -32,7 +32,7 @@ program
   .requiredOption("--name <name>", "keystore name (keys/<name>.json)")
   .action(async (opts) => {
     const res = await createEncryptedWallet(String(opts.name), mustPassword());
-    console.log(JSON.stringify(res, null, 2));
+    console.log(jsonOut(res));
   });
 
 program
@@ -54,7 +54,7 @@ program
       throw new Error("Provide --wallet or --address");
     }
     const out = await showBalances(cfg, prov, address);
-    console.log(JSON.stringify(out, null, 2));
+    console.log(jsonOut(out));
   });
 
 program
@@ -79,7 +79,7 @@ program
       frequencySeconds: Number(opts.frequencySeconds),
       dryRun: Boolean(opts.dryRun)
     });
-    console.log(JSON.stringify(res, null, 2));
+    console.log(jsonOut(res));
   });
 
 program
@@ -102,7 +102,7 @@ program
       amountUsdc: String(opts.amountUsdc),
       dryRun: Boolean(opts.dryRun)
     });
-    console.log(JSON.stringify(res, null, 2));
+    console.log(jsonOut(res));
   });
 
 program
@@ -125,7 +125,7 @@ program
       amountUsdc: String(opts.amountUsdc),
       dryRun: Boolean(opts.dryRun)
     });
-    console.log(JSON.stringify(res, null, 2));
+    console.log(jsonOut(res));
   });
 
 program
@@ -148,7 +148,7 @@ program
       amountUsdc: String(opts.amountUsdc),
       dryRun: Boolean(opts.dryRun)
     });
-    console.log(JSON.stringify(res, null, 2));
+    console.log(jsonOut(res));
   });
 
 program
@@ -179,7 +179,7 @@ program
       recipient: opts.recipient ? String(opts.recipient) : undefined,
       dryRun: Boolean(opts.dryRun)
     });
-    console.log(JSON.stringify(res, null, 2));
+    console.log(jsonOut(res));
   });
 
 program
@@ -193,8 +193,17 @@ program
     const f = String(opts.feed).toLowerCase();
     const addr = f === "btc" ? cfg.chainlink.btcUsd : f === "eth" ? cfg.chainlink.ethUsd : cfg.chainlink.usdcUsd;
     const out = await readChainlink(addr, prov);
-    console.log(JSON.stringify(out, null, 2));
+    console.log(jsonOut(out));
   });
+
+function jsonOut(obj: any) {
+  // JSON.stringify can't serialize BigInt; convert to string.
+  return JSON.stringify(
+    obj,
+    (_k, v) => (typeof v === "bigint" ? v.toString() : v),
+    2
+  );
+}
 
 program.parseAsync(process.argv).catch((e) => {
   console.error(e?.message ?? e);

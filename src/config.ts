@@ -60,9 +60,10 @@ export function loadConfig(): SkillConfig {
     ? JSON.parse(fs.readFileSync(cfgPath, "utf8"))
     : JSON.parse(fs.readFileSync(examplePath, "utf8"));
 
-  // env overrides
-  if (process.env.PW_RPC_URL) raw.rpcUrl = process.env.PW_RPC_URL;
-  if (process.env.PW_CHAIN) raw.chain = process.env.PW_CHAIN;
+  // Defaults (Base Sepolia) to minimize config for hackathon.
+  // Can be overridden via env for mainnet/other networks.
+  raw.rpcUrl = process.env.PW_RPC_URL || raw.rpcUrl || "https://sepolia.base.org";
+  raw.chain = process.env.PW_CHAIN || raw.chain || "base-sepolia";
 
   return ConfigSchema.parse(raw);
 }
