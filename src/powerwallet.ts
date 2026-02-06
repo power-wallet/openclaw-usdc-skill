@@ -1,4 +1,5 @@
 import { Contract, type JsonRpcProvider, type AbstractSigner, ethers, formatUnits } from "ethers";
+import { SIMPLE_DCA_ABI } from "./abis.js";
 import {
   POWERWALLET_ABI,
   STRATEGY_REGISTRY_ABI,
@@ -19,6 +20,15 @@ export async function listUserPowerWallets(cfg: SkillConfig, prov: JsonRpcProvid
   const wallets: string[] = await factory.getUserWallets(user);
   return { user, wallets };
 }
+
+const STRATEGY_NAME_MAP: Record<string, string> = {
+  "simple-btc-dca-v1": "Pure",
+  "btc-dca-power-law-v1": "Power",
+  "power-btc-dca-v1": "Smart",
+  "power-btc-dca-v2": "Power",
+  "smart-btc-dca-v2": "Smart",
+  "trend-btc-dca-v1": "Trend"
+};
 
 export async function showPowerWalletBalances(cfg: SkillConfig, prov: JsonRpcProvider, powerWalletAddr: string) {
   const pw = powerWallet(powerWalletAddr, prov);
@@ -50,6 +60,84 @@ export async function showPowerWalletBalances(cfg: SkillConfig, prov: JsonRpcPro
     stable: { asset: stableAddr, symbol: stableMeta.symbol, balance: formatUnits(stableBal, stableMeta.decimals) },
     risks: riskBals
   };
+}
+
+export async function getPowerWalletConfig(cfg: SkillConfig, prov: JsonRpcProvider, powerWalletAddr: string) {
+  const pw = powerWallet(powerWalletAddr, prov);
+  const strategyAddr = String(await pw.strategy());
+  const strat = new Contract(strategyAddr, SIMPLE_DCA_ABI, prov);
+
+  // Strategy id + mapping
+  let strategyId = "unknown";
+  try { strategyId = String(await strat.id()); } catch {}
+  const strategyName = STRATEGY_NAME_MAP[strategyId] || "Unknown";
+
+  const out: any = {
+    powerWallet: powerWalletAddr,
+    strategy: {
+      address: strategyAddr,
+      id: strategyId,
+      name: strategyName
+    }
+  };
+
+  // For Pure (simple-btc-dca-v1), show cadence + amount
+  if (strategyId === "simple-btc-dca-v1") {
+    const stableAddr = String(await strat.stableAsset());
+    const meta = await erc20Meta(stableAddr, prov);
+    const [amt, freq] = await Promise.all([strat.dcaAmountStable(), strat.frequency()]);
+    out.pure = {
+      stable: stableAddr,
+      amountUsdc: formatUnits(BigInt(amt), meta.decimals),
+      frequencySeconds: Number(freq)
+    };
+  }
+
+  return out;
+}
+
+export async function setPureDcaConfig(params: {
+  cfg: SkillConfig;
+  prov: JsonRpcProvider;
+  signer: AbstractSigner;
+  strategyAddr: string;
+  amountUsdc?: string;
+  frequencySeconds?: number;
+  dryRun: boolean;
+}) {
+  const { cfg, signer, strategyAddr, amountUsdc, frequencySeconds, dryRun } = params;
+  const strat = new Contract(strategyAddr, SIMPLE_DCA_ABI, signer);
+
+  const txs: any[] = [];
+
+  if (amountUsdc !== undefined) {
+    const stableAddr = String(await strat.stableAsset());
+    const meta = await erc20Meta(stableAddr, params.prov);
+    const amt = parseAmount(String(amountUsdc), meta.decimals);
+    const txReq = await strat.setDcaAmountStable.populateTransaction(amt);
+    if (dryRun) {
+      const gas = await signer.estimateGas({ ...txReq, ...txOverrides(cfg) });
+      txs.push({ kind: "setDcaAmountStable", gas: gas.toString() });
+    } else {
+      const tx = await signer.sendTransaction({ ...txReq, ...txOverrides(cfg) });
+      await tx.wait(cfg.confirmations);
+      txs.push({ kind: "setDcaAmountStable", txHash: tx.hash });
+    }
+  }
+
+  if (frequencySeconds !== undefined) {
+    const txReq = await strat.setFrequency.populateTransaction(BigInt(frequencySeconds));
+    if (dryRun) {
+      const gas = await signer.estimateGas({ ...txReq, ...txOverrides(cfg) });
+      txs.push({ kind: "setFrequency", gas: gas.toString() });
+    } else {
+      const tx = await signer.sendTransaction({ ...txReq, ...txOverrides(cfg) });
+      await tx.wait(cfg.confirmations);
+      txs.push({ kind: "setFrequency", txHash: tx.hash });
+    }
+  }
+
+  return { dryRun: dryRun as boolean, actions: txs };
 }
 
 export function strategyRegistry(addr: string, signerOrProvider: any) {

@@ -12,7 +12,9 @@ import {
   swapExactInputSingle,
   withdrawFromPowerWallet,
   listUserPowerWallets,
-  showPowerWalletBalances
+  showPowerWalletBalances,
+  getPowerWalletConfig,
+  setPureDcaConfig
 } from "./powerwallet.js";
 import { readChainlink } from "./prices.js";
 
@@ -216,6 +218,43 @@ program
     await requireAllowedChain(cfg, prov);
 
     const out = await showPowerWalletBalances(cfg, prov, String(opts.powerwallet));
+    console.log(jsonOut(out));
+  });
+
+program
+  .command("powerwallet:config")
+  .requiredOption("--powerwallet <addr>")
+  .action(async (opts) => {
+    const cfg = loadConfig();
+    const prov = providerFromConfig(cfg);
+    await requireAllowedChain(cfg, prov);
+
+    const out = await getPowerWalletConfig(cfg, prov, String(opts.powerwallet));
+    console.log(jsonOut(out));
+  });
+
+program
+  .command("pure:set")
+  .requiredOption("--wallet <name>")
+  .requiredOption("--strategy <addr>")
+  .option("--dca-usdc <amount>")
+  .option("--frequency-seconds <n>")
+  .option("--dry-run", "estimate gas only", false)
+  .action(async (opts) => {
+    const cfg = loadConfig();
+    const prov = providerFromConfig(cfg);
+    await requireAllowedChain(cfg, prov);
+
+    const signer = (await loadEncryptedWallet(String(opts.wallet), mustPassword())).connect(prov);
+    const out = await setPureDcaConfig({
+      cfg,
+      prov,
+      signer,
+      strategyAddr: String(opts.strategy),
+      amountUsdc: opts.dcaUsdc !== undefined ? String(opts.dcaUsdc) : undefined,
+      frequencySeconds: opts.frequencySeconds !== undefined ? Number(opts.frequencySeconds) : undefined,
+      dryRun: Boolean(opts.dryRun)
+    });
     console.log(jsonOut(out));
   });
 
