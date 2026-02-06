@@ -10,7 +10,8 @@ import {
   sendUsdc,
   showBalances,
   swapExactInputSingle,
-  withdrawFromPowerWallet
+  withdrawFromPowerWallet,
+  listUserPowerWallets
 } from "./powerwallet.js";
 import { readChainlink } from "./prices.js";
 
@@ -180,6 +181,29 @@ program
       dryRun: Boolean(opts.dryRun)
     });
     console.log(jsonOut(res));
+  });
+
+program
+  .command("wallets:list")
+  .option("--wallet <name>", "use local encrypted keystore")
+  .option("--address <addr>", "address to query (if no --wallet)")
+  .action(async (opts) => {
+    const cfg = loadConfig();
+    const prov = providerFromConfig(cfg);
+    await requireAllowedChain(cfg, prov);
+
+    let address: string;
+    if (opts.wallet) {
+      const w = await loadEncryptedWallet(String(opts.wallet), mustPassword());
+      address = w.address;
+    } else if (opts.address) {
+      address = String(opts.address);
+    } else {
+      throw new Error("Provide --wallet or --address");
+    }
+
+    const out = await listUserPowerWallets(cfg, prov, address);
+    console.log(jsonOut(out));
   });
 
 program

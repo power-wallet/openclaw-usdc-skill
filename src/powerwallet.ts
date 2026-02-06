@@ -14,6 +14,12 @@ export function walletFactory(addr: string, signerOrProvider: any) {
   return new Contract(addr, WALLET_FACTORY_ABI, signerOrProvider);
 }
 
+export async function listUserPowerWallets(cfg: SkillConfig, prov: JsonRpcProvider, user: string) {
+  const factory = walletFactory(cfg.contracts.walletFactory, prov);
+  const wallets: string[] = await factory.getUserWallets(user);
+  return { user, wallets };
+}
+
 export function strategyRegistry(addr: string, signerOrProvider: any) {
   return new Contract(addr, STRATEGY_REGISTRY_ABI, signerOrProvider);
 }
