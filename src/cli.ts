@@ -11,7 +11,8 @@ import {
   showBalances,
   swapExactInputSingle,
   withdrawFromPowerWallet,
-  listUserPowerWallets
+  listUserPowerWallets,
+  showPowerWalletBalances
 } from "./powerwallet.js";
 import { readChainlink } from "./prices.js";
 
@@ -203,6 +204,18 @@ program
     }
 
     const out = await listUserPowerWallets(cfg, prov, address);
+    console.log(jsonOut(out));
+  });
+
+program
+  .command("powerwallet:balance")
+  .requiredOption("--powerwallet <addr>")
+  .action(async (opts) => {
+    const cfg = loadConfig();
+    const prov = providerFromConfig(cfg);
+    await requireAllowedChain(cfg, prov);
+
+    const out = await showPowerWalletBalances(cfg, prov, String(opts.powerwallet));
     console.log(jsonOut(out));
   });
 

@@ -20,6 +20,38 @@ export async function listUserPowerWallets(cfg: SkillConfig, prov: JsonRpcProvid
   return { user, wallets };
 }
 
+export async function showPowerWalletBalances(cfg: SkillConfig, prov: JsonRpcProvider, powerWalletAddr: string) {
+  const pw = powerWallet(powerWalletAddr, prov);
+  const [stableAsset, riskAssets, bal] = await Promise.all([
+    pw.stableAsset(),
+    pw.getRiskAssets(),
+    pw.getBalances()
+  ]);
+
+  const stableAddr = String(stableAsset);
+  const risks: string[] = (riskAssets || []).map((x: any) => String(x));
+
+  const stableMeta = await erc20Meta(stableAddr, prov);
+  const stableBal: bigint = BigInt(bal?.stableBal ?? bal?.[0] ?? 0);
+
+  const riskBalsRaw: any[] = bal?.riskBals ?? bal?.[1] ?? [];
+  const riskBals: Array<{ asset: string; symbol: string; balance: string }> = [];
+
+  for (let i = 0; i < risks.length; i++) {
+    const asset = risks[i];
+    const meta = await erc20Meta(asset, prov);
+    const raw = riskBalsRaw[i] ?? 0;
+    const b = BigInt(raw);
+    riskBals.push({ asset, symbol: meta.symbol, balance: formatUnits(b, meta.decimals) });
+  }
+
+  return {
+    powerWallet: powerWalletAddr,
+    stable: { asset: stableAddr, symbol: stableMeta.symbol, balance: formatUnits(stableBal, stableMeta.decimals) },
+    risks: riskBals
+  };
+}
+
 export function strategyRegistry(addr: string, signerOrProvider: any) {
   return new Contract(addr, STRATEGY_REGISTRY_ABI, signerOrProvider);
 }
