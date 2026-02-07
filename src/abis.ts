@@ -40,6 +40,7 @@ export const POWERWALLET_ABI = [
   "function getPortfolioValueUSD() view returns (uint256 usd6)",
   "function slippageBps() view returns (uint16)",
   "function setSlippageBps(uint16)",
+  "function setFees(address[] risks, uint24[] fees)",
   "function closeWallet()"
 ];
 

@@ -39,6 +39,21 @@ npx tsx src/cli.ts --help
 
 ### 1) Create EOA (encrypted)
 ```bash
+# Password
+
+The keystore password is passed via env var `PW_KEY_PASSWORD`.
+
+Example (store locally, don’t commit):
+
+```bash
+# put this in ~/.clawdbot/secrets/powerwallet-usdc.env
+# PW_KEY_PASSWORD=change-me
+
+set -a
+source ~/.clawdbot/secrets/powerwallet-usdc.env
+set +a
+```
+
 PW_KEY_PASSWORD='change-me' npx tsx src/cli.ts eoa:create --name demo
 ```
 Outputs the new address and writes `keys/demo.json`.

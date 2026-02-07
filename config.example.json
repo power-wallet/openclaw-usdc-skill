@@ -25,7 +25,7 @@
   },
   "defaults": {
     "riskAssets": ["cbBTC"],
-    "poolFees": [500]
+    "poolFees": [100]
   },
   "safety": {
     "allowedChains": ["base-sepolia"],

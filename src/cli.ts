@@ -14,7 +14,8 @@ import {
   listUserPowerWallets,
   showPowerWalletBalances,
   getPowerWalletConfig,
-  setPureDcaConfig
+  setPureDcaConfig,
+  setPowerWalletFees
 } from "./powerwallet.js";
 import { readChainlink } from "./prices.js";
 
@@ -230,6 +231,34 @@ program
     await requireAllowedChain(cfg, prov);
 
     const out = await getPowerWalletConfig(cfg, prov, String(opts.powerwallet));
+    console.log(jsonOut(out));
+  });
+
+program
+  .command("powerwallet:setfees")
+  .requiredOption("--wallet <name>")
+  .requiredOption("--powerwallet <addr>")
+  .requiredOption("--risks <list>", "comma-separated risk asset addresses")
+  .requiredOption("--fees <list>", "comma-separated Uniswap V3 pool fees (uint24), e.g. 100")
+  .option("--dry-run", "estimate gas only", false)
+  .action(async (opts) => {
+    const cfg = loadConfig();
+    const prov = providerFromConfig(cfg);
+    await requireAllowedChain(cfg, prov);
+
+    const signer = (await loadEncryptedWallet(String(opts.wallet), mustPassword())).connect(prov);
+    const risks = String(opts.risks).split(',').map((s) => s.trim()).filter(Boolean);
+    const fees = String(opts.fees).split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n));
+
+    const out = await setPowerWalletFees({
+      cfg,
+      prov,
+      signer,
+      powerWalletAddr: String(opts.powerwallet),
+      risks,
+      fees,
+      dryRun: Boolean(opts.dryRun)
+    });
     console.log(jsonOut(out));
   });
 

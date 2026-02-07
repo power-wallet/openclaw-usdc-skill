@@ -34,6 +34,8 @@ export const ConfigSchema = z.object({
   defaults: z
     .object({
       riskAssets: z.array(z.string()).default(["cbBTC"]),
+      // NOTE: fee depends on network. We default to 500 (Base mainnet typical),
+      // and override to 100 for Base Sepolia in loadConfig() if not explicitly set.
       poolFees: z.array(z.number().int()).default([500])
     })
     .default({ riskAssets: ["cbBTC"], poolFees: [500] }),
@@ -64,6 +66,13 @@ export function loadConfig(): SkillConfig {
   // Can be overridden via env for mainnet/other networks.
   raw.rpcUrl = process.env.PW_RPC_URL || raw.rpcUrl || "https://sepolia.base.org";
   raw.chain = process.env.PW_CHAIN || raw.chain || "base-sepolia";
+
+  // Network-specific default: Base Sepolia uses cbBTC/USDC fee tier 100.
+  // Only override if the user did not explicitly set poolFees.
+  if (!raw?.defaults?.poolFees || !Array.isArray(raw.defaults.poolFees) || raw.defaults.poolFees.length === 0) {
+    raw.defaults = raw.defaults || {};
+    raw.defaults.poolFees = raw.chain === 'base-sepolia' ? [100] : [500];
+  }
 
   return ConfigSchema.parse(raw);
 }

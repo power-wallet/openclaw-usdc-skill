@@ -62,6 +62,39 @@ export async function showPowerWalletBalances(cfg: SkillConfig, prov: JsonRpcPro
   };
 }
 
+export async function setPowerWalletFees(params: {
+  cfg: SkillConfig;
+  prov: JsonRpcProvider;
+  signer: AbstractSigner;
+  powerWalletAddr: string;
+  risks: string[];
+  fees: number[];
+  dryRun: boolean;
+}) {
+  const { cfg, signer, powerWalletAddr, risks, fees, dryRun } = params;
+  if (!Array.isArray(risks) || !Array.isArray(fees) || risks.length !== fees.length || risks.length === 0) {
+    throw new Error('setFees requires equal-length non-empty arrays: risks[] and fees[]');
+  }
+
+  const pw = powerWallet(powerWalletAddr, signer);
+  const feesU24 = fees.map((x) => {
+    const n = Number(x);
+    if (!Number.isFinite(n) || n < 0 || n > 1_000_000) throw new Error(`Invalid fee: ${x}`);
+    return n;
+  });
+
+  const txReq = await pw.setFees.populateTransaction(risks, feesU24);
+
+  if (dryRun) {
+    const gas = await signer.estimateGas({ ...txReq, ...txOverrides(cfg) });
+    return { dryRun: true as const, gas: gas.toString(), risks, fees: feesU24 };
+  }
+
+  const tx = await signer.sendTransaction({ ...txReq, ...txOverrides(cfg) });
+  await tx.wait(cfg.confirmations);
+  return { dryRun: false as const, txHash: tx.hash, risks, fees: feesU24 };
+}
+
 export async function getPowerWalletConfig(cfg: SkillConfig, prov: JsonRpcProvider, powerWalletAddr: string) {
   const pw = powerWallet(powerWalletAddr, prov);
   const strategyAddr = String(await pw.strategy());
@@ -196,7 +229,7 @@ export async function createPowerWalletWithSimpleDca(params: {
   const usdcAddr = cfg.tokens.usdc;
   const riskAddr = cfg.tokens.cbBTC;
   const feedAddr = cfg.chainlink.btcUsd;
-  const poolFee = cfg.defaults.poolFees[0] ?? 500;
+  const poolFee = cfg.defaults.poolFees[0] ?? (cfg.chain === 'base-sepolia' ? 100 : 500);
 
   const usdcMeta = await erc20Meta(usdcAddr, prov);
   const dcaAmount = parseAmount(dcaUsdc, usdcMeta.decimals);
